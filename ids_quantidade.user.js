@@ -5,8 +5,8 @@
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
-// @updateURL    COLE-AQUI-O-LINK-DO-ARQUIVO
-// @downloadURL  COLE-AQUI-O-LINK-DO-ARQUIVO
+// @updateURL    https://github.com/almoxarifarbariri-a11y/ids_quantidade.user.js/blob/main/ids_quantidade.user.js
+// @downloadURL  https://github.com/almoxarifarbariri-a11y/ids_quantidade.user.js/blob/main/ids_quantidade.user.js
 // ==/UserScript==
 
 (function () {
