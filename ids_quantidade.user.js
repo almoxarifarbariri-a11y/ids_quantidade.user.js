@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.10
+// @version      1.0.11
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -355,7 +355,7 @@ const TABELA = {
   "7896108006296": 30,    // POLIVITAMINICO COM - BIONATUS
   "260900151": 1,    // POLIVITAMINICO INJETAVEL AMP - CRISTÁLIA
   "7896714293196": 20,    // PREDNISONA 20MG COM - BRAINFARMA
-  "7898470686427": 20,    // PREDNISONA 5MG COM - HIPOLABOR
+  "7898470686427": 500,    // PREDNISONA 5MG COM - HIPOLABOR
   "7898040323271": 50,    // PROPATILNITRATO 10MG (SUSTRATE) COM - FARMOQUÍMICA
   "260900085": 1,    // [NOVO] RIFAMICINA 10MG/ML FCO - NATULAB
   "7899547530094": 15,    // RISPERIDONA 1MG COM - PRATI
@@ -441,6 +441,9 @@ const TABELA = {
     "7899095210172": 20,    // MALEATO DEXCLORFENIRAMINA 2MG (POLARAMINE) COM - GEOLAB
     "7898075317160": 20,    // CONFERIR: estoque dos lotes nao e multiplo de 30 | MALEATO DE ENALAPRIL 20MG COM - CIMED
     "7898075317153": 20,    // CONFERIR: estoque dos lotes nao e multiplo de 30 | MALEATO DE ENALAPRIL 5MG COM - CIMED
+    "7896714267395": 5,    // PIROXICAM 20MG CPS - LABORATÓRIO
+    "7898470686427": 10,    // PREDNISONA 5MG COM - HIPOLABOR
+    "7896714293196": 100,    // PREDNISONA 20MG COM - BRAINFARMA
     
   };
 
