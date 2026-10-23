@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.17
+// @version      1.0.18
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -414,7 +414,7 @@ const TABELA = {
     "7896094922143": 15,   // Cumarina + Troxerrutina: caixa 60, cartela 15 - Takeda
     "7896094932579": 15,   // Cumarina + Troxerrutina: caixa 60, cartela 15 - Mantecorp
     "7898148298938": 12,    // AMOXICILINA 500MG CPS - PRATI
-    "261000042": 10,    // CEFALEXINA 500 MG CPS - LABORATORIO
+    "00000261000042": 10,    // CEFALEXINA 500 MG CPS - LABORATORIO
     "7896112166245": 7,    // CONFERIR: cadastro antigo diz 28 capsulas, tabela usa 7 | NITROFURANTOINA 100MG CPS - LABORATORIO
     "9990000012930": 14, // Norfloxacino
     "7899547507102": 10,    // SULFAMETOXAZOL 400MG + TRIMETOPRIMA 80MG COM - PRATI
