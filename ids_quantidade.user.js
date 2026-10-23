@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.6
+// @version      1.0.7
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -399,6 +399,7 @@ const TABELA = {
   "7898665434604": 1,    // SUSTAGEM - COMPLEMENTO NUTRICIONAL 400G - BAUNILHA LAT - VIDA
   "7898616360136": 1,    // CANETA REUTILIZAVEL - GLARGINA CAN - BIOMM
   "7897473206106": 1,    // DIPROPIONATO DE BECLAMETASONA 200MCG FCO - GLENMARK
+
   
 };
 
@@ -416,6 +417,7 @@ const TABELA = {
     "7898100244638": 20,    // ACIDO ACETILSALICILICO 100MG COM - BRASTERAPICA
     "260900087": 15,    // ACIDO ASCORBICO 500MG COM - BEDALM // TESTE
     "7898133136580": 20,    // ACIDO FOLICO 5MG COM - NATULAB
+    "7899547503937": 10,    // ALOPURINOL 300MG COM - PRATI
     
   };
 
