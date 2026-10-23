@@ -406,6 +406,14 @@ const TABELA = {
   const AVULSO = {
     "7896094922143": 15,   // Cumarina + Troxerrutina: caixa 60, cartela 15 - Takeda
     "7896094932579": 15,   // Cumarina + Troxerrutina: caixa 60, cartela 15 - Mantecorp
+    "7898148298938": 12,    // AMOXICILINA 500MG CPS - PRATI
+    "261000042": 10,    // CEFALEXINA 500 MG CPS - LABORATORIO
+    "7896112166245": 7,    // CONFERIR: cadastro antigo diz 28 capsulas, tabela usa 7 | NITROFURANTOINA 100MG CPS - LABORATORIO
+    "9990000012930": 14, // Norfloxacino
+    "7899547507102": 10,    // SULFAMETOXAZOL 400MG + TRIMETOPRIMA 80MG COM - PRATI
+    "7898148292004": 15,    // CONFERIR: estoque dos lotes nao e multiplo de 14 | CLORIDRATO DE CIPROFLOXACINO 500MG COM - PRATI
+    "7898100244638": 20,    // ACIDO ACETILSALICILICO 100MG COM - BRASTERAPICA
+    "260900087": 15,    // ACIDO ASCORBICO 500MG COM - BEDALM
   };
 
   const INTERVALO_MS = 30;          // frequência de checagem
