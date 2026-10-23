@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.11
+// @version      1.0.12
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -443,7 +443,7 @@ const TABELA = {
     "7898075317153": 20,    // CONFERIR: estoque dos lotes nao e multiplo de 30 | MALEATO DE ENALAPRIL 5MG COM - CIMED
     "7896714267395": 5,    // PIROXICAM 20MG CPS - LABORATÓRIO
     "7898470686427": 10,    // PREDNISONA 5MG COM - HIPOLABOR
-    "7896714293196": 100,    // PREDNISONA 20MG COM - BRAINFARMA
+    "7896714293196": 10,    // PREDNISONA 20MG COM - BRAINFARMA
     
   };
 
