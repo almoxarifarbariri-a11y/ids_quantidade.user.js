@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.13
+// @version      1.0.14
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -454,17 +454,19 @@ const TABELA = {
     
   };
 
-  const INTERVALO_MS = 30;          // frequência de checagem
+    const INTERVALO_MS = 30;          // frequência de checagem
   const MIN_MESMO_ITEM_MS = 250;    // espera mínima ao bipar o mesmo item de novo
   const LIMITE_MS = 3000;           // desiste depois disso
   const CONFERE_MS = 400;           // reconfere se o IDS não sobrescreveu
   const VOLTAR_AO_CODIGO_NA_SAIDA = false;  // true = também volta ao código na saída
+  const EXIGIR_CAMPO_LIMPO = true;  // ao bipar o MESMO item de novo, só soma depois que o IDS limpar o campo do código
 
   // Etiqueta avulsa (gerada pelo IDS): mesmo C.B. da caixa, mas o código lido começa com 0
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa
   const ehEtiquetaAvulsa = (codigo) => /^0\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado | códigos na tabela:", Object.keys(TABELA).length, "| avulsos especiais:", Object.keys(AVULSO).length);
+  console.log("[IDS-qtd] script carregado | códigos na tabela:", Object.keys(TABELA).length,
+              "| avulsos especiais:", Object.keys(AVULSO).length);
 
   // aviso rápido no canto da tela com o que o script entendeu da última bipada
   const aviso = document.createElement("div");
@@ -519,6 +521,14 @@ const TABELA = {
     if (cod && (ativo === qtdCampo || ativo === document.body)) cod.focus();
   }
 
+  // procura a quantidade na tabela usando várias chaves, na ordem; devolve undefined se não achar
+  function buscar(tabela, chaves) {
+    for (const k of chaves) {
+      if (k && tabela[k] !== undefined) return tabela[k];
+    }
+    return undefined;
+  }
+
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     const cod = campoPorRotulo(RE_COD);
@@ -535,29 +545,42 @@ const TABELA = {
     const t = setInterval(() => {
       try {
         const decorrido = Date.now() - inicio;
+        const lote = campoPorRotulo(RE_LOTE);
         if (decorrido > LIMITE_MS) {
           clearInterval(t);
-          console.warn("[IDS-qtd] tempo esgotado: o campo Lote do Fabricante não trouxe 'C.B.:'");
+          console.warn("[IDS-qtd] tempo esgotado. Lote do Fabricante:", lote ? lote.value : "(campo não encontrado)",
+                       "| campo do código ainda tem:", (campoPorRotulo(RE_COD) || {}).value);
           return;
         }
 
-        const lote = campoPorRotulo(RE_LOTE);
         const qtdCampo = campoPorRotulo(RE_QTD);
         if (!lote || !qtdCampo) return;
+        const textoLote = lote.value || "";
+        if (!textoLote) return;                       // o IDS ainda não trouxe o item
 
-        const m = (lote.value || "").match(/C\.B\.:\s*(\S+)/);
-        if (!m) return;
-
-        const mudou = lote.value !== antes.lote;
-        if (!mudou && decorrido < MIN_MESMO_ITEM_MS) return;
-
+        const mudou = textoLote !== antes.lote;
+        if (!mudou) {                                  // mesmo item bipado de novo
+          if (decorrido < MIN_MESMO_ITEM_MS) return;
+          const codAtual = campoPorRotulo(RE_COD);
+          if (EXIGIR_CAMPO_LIMPO && codAtual && codAtual.value) return;  // IDS ainda não processou o código
+        }
         clearInterval(t);
 
-        if (!avulso && !TABELA[m[1]]) {
-          console.log("[IDS-qtd] C.B.", m[1], "não está na tabela: não preenche");
+        const m = textoLote.match(/C\.B\.:\s*(\S+)/);
+        const cbLote = m ? m[1] : null;                // C.B. do lote mostrado pelo IDS
+        const semZeros = codigoLido.replace(/^0+/, "");
+
+        // quantidade: 1) código bipado (ex.: etiquetas antigas) 2) C.B. do lote; avulso usa AVULSO ou QTD_AVULSO
+        const unidade = avulso
+          ? (buscar(AVULSO, [cbLote, semZeros]) || QTD_AVULSO)
+          : buscar(TABELA, [codigoLido, cbLote]);
+        console.log("[IDS-qtd] item pronto em", decorrido, "ms | bipado:", codigoLido, "| C.B. do lote:", cbLote,
+                    "| quantidade da tabela:", unidade, "| antes:", antes);
+
+        if (unidade === undefined) {
+          console.log("[IDS-qtd] nem o código bipado nem o C.B. do lote estão na tabela: não preenche");
           return;
         }
-        const unidade = avulso ? (AVULSO[m[1]] || QTD_AVULSO) : TABELA[m[1]];
 
         let alvo = null;
         if (!mudou && antes.qtd > 0) alvo = antes.qtd + unidade;   // soma
@@ -568,7 +591,7 @@ const TABELA = {
         }
 
         preencher(qtdCampo, alvo);
-        console.log("[IDS-qtd] preenchido:", alvo, "| C.B.:", m[1], "| pronto em", decorrido, "ms");
+        console.log("[IDS-qtd] preenchido:", alvo);
         mostrarAviso((avulso ? "AVULSO" : "CAIXA") + ": +" + unidade, avulso);
         setTimeout(() => voltarAoCodigo(qtdCampo), 60);
         setTimeout(() => {
