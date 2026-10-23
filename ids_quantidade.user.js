@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.16
+// @version      1.0.17
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -464,6 +464,8 @@ const TABELA = {
     "7898920500679": 1,    // SACARATO DE HIDROXIDO FERRICO 100MG/5ML AMP - CASULA
     "7898040323127": 30,    // VARFARINA 5MG COM - FARMOQUÍMICA
     "7896112407102": 25,    // TIAMAZOL 10MG COM - BIOLAB
+    "7896112132257": 10,    // CEFALEXINA 500MG CPS
+    "7898014565409": 14,    // NORFLOXACINO 400MG COM
     
   };
 
@@ -490,7 +492,7 @@ const TABELA = {
   let tAviso = null;
   function mostrarAviso(texto, avulso) {
     aviso.textContent = texto;
-    aviso.style.background = avulso ? "#e67e00" : "#2e7d32";
+        aviso.style.background = avulso === "erro" ? "#c62828" : avulso ? "#e67e00" : "#2e7d32";
     aviso.style.display = "block";
     clearTimeout(tAviso);
     tAviso = setTimeout(() => { aviso.style.display = "none"; }, 3000);
@@ -593,8 +595,11 @@ const TABELA = {
         console.log("[IDS-qtd] item pronto em", decorrido, "ms | bipado:", codigoLido, "| C.B. do lote:", cbLote,
                     "| quantidade da tabela:", unidade, "| antes:", antes);
 
-        if (unidade === undefined) {
+                if (unidade === undefined) {
           console.log("[IDS-qtd] nem o código bipado nem o C.B. do lote estão na tabela: não preenche");
+          mostrarAviso("SEM QUANTIDADE CADASTRADA (" + codigoLido + "): digite", "erro");
+          return;
+        }
           return;
         }
 
