@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.3
+// @version      1.0.4
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -255,7 +255,7 @@ const TABELA = {
   "7899547514346": 30,    // GABAPENTINA 300MG CPS - PRATI
   "7899547514407": 30,    // GABAPENTINA 400MG CPS - PRATI
   "7899547508796": 30,    // GINKGO BILOBA 80MG COM - PRATI
-  "7896004784397": 60,    // GLICLAZIDA 30MG COM - EMS
+  "7896004784397": 30,    // GLICLAZIDA 30MG COM - EMS
   "260900162": 1,    // GLICOSE 25% AMP. 10 ML AMP - SAMTEC
   "260900163": 1,    // GLICOSE 50% 20ML EV AMP - SAMTEC
   "7896523210926": 30,    // GLIMEPIRIDA 2MG COM - CIMED
