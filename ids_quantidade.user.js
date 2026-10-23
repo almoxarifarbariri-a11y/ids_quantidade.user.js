@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.14
+// @version      1.0.15
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -463,7 +463,7 @@ const TABELA = {
 
   // Etiqueta avulsa (gerada pelo IDS): mesmo C.B. da caixa, mas o código lido começa com 0
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa
-  const ehEtiquetaAvulsa = (codigo) => /^0\d+$/.test(codigo);
+      const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
   console.log("[IDS-qtd] script carregado | códigos na tabela:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
@@ -571,8 +571,11 @@ const TABELA = {
         const semZeros = codigoLido.replace(/^0+/, "");
 
         // quantidade: 1) código bipado (ex.: etiquetas antigas) 2) C.B. do lote; avulso usa AVULSO ou QTD_AVULSO
+                        const etiquetaAntiga = codigoLido.startsWith("999");   // etiqueta do sistema antigo
         const unidade = avulso
-          ? (buscar(AVULSO, [cbLote, semZeros]) || QTD_AVULSO)
+          ? (etiquetaAntiga
+              ? (buscar(AVULSO, [codigoLido, cbLote]) ?? buscar(TABELA, [codigoLido]))   // só preenche se o código estiver listado
+              : (buscar(AVULSO, [cbLote, semZeros]) || QTD_AVULSO))
           : buscar(TABELA, [codigoLido, cbLote]);
         console.log("[IDS-qtd] item pronto em", decorrido, "ms | bipado:", codigoLido, "| C.B. do lote:", cbLote,
                     "| quantidade da tabela:", unidade, "| antes:", antes);
