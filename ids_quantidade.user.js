@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.7
+// @version      1.0.8
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -32,7 +32,7 @@ const TABELA = {
   "260900069": 1,    // [NOVO] ACIDO ASCORBICO 200MG/ML FCO - AIRELA
   "260900087": 15,    // ACIDO ASCORBICO 500MG COM - BEDALM
   "260900070": 1,    // [NOVO] ACIDO FOLICO 0,2MG/ML FCO - MAYBEN
-  "7898133136580": 20,    // ACIDO FOLICO 5MG COM - NATULAB
+  "7898133136580": 500,    // ACIDO FOLICO 5MG COM - NATULAB
   "7896255765633": 50,    // CONFERIR: estoque dos lotes nao e multiplo de 30 | ACIDO VALPROICO 250MG (DEPAKENE) CPS - ABBOTT
   "7891158000317": 50,    // CONFERIR: estoque dos lotes nao e multiplo de 30 | ACIDO VALPROICO 300MG (DEPAKENE) CPS - ABBOTT
   "7891158000898": 50,    // CONFERIR: estoque dos lotes nao e multiplo de 30 (cabe 10/25/50) | ACIDO VALPROICO 500MG (DEPAKENE) CPS - ABBOTT
