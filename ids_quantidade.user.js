@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.20
+// @version      1.0.21
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -621,4 +621,45 @@ const TABELA = {
       }
     }, INTERVALO_MS);
   }, true);
+    // ===== Janela "Histórico de Saídas de Insumos" (bloqueio de retirada antecipada) =====
+  const AUTO_FECHAR_HISTORICO = true;   // true = clica em "Sair" sozinho | false = só devolve o foco quando VOCÊ fechar
+  const RE_JANELA_HIST = /Hist.rico de Sa.das de Insumos/i;
+
+  function janelaHistorico() {
+    return [...document.querySelectorAll(".x-window")].find(w =>
+      w.offsetParent !== null &&
+      RE_JANELA_HIST.test((w.querySelector(".x-window-header, .x-header, .x-title")?.textContent || "")));
+  }
+
+  function focarCodigo() {
+    const cod = campoPorRotulo(RE_COD);
+    if (cod) { cod.focus(); cod.select && cod.select(); }
+  }
+
+  let histAberta = false;
+  let histClicada = false;
+
+  setInterval(() => {
+    try {
+      const w = janelaHistorico();
+      if (w) {
+        histAberta = true;
+        if (AUTO_FECHAR_HISTORICO && !histClicada) {
+          const btn = [...w.querySelectorAll(".x-btn")].find(b => /^\s*Sair\s*$/i.test(b.textContent));
+          if (btn) {
+            histClicada = true;
+            console.log("[IDS-qtd] janela de histórico detectada: clicando em Sair");
+            const cmp = window.Ext && Ext.getCmp(btn.id);
+            if (cmp && cmp.fireHandler) cmp.fireHandler(); else btn.click();
+          }
+        }
+      } else if (histAberta) {                       // a janela acabou de fechar
+        histAberta = false;
+        histClicada = false;
+        console.log("[IDS-qtd] histórico fechado: voltando ao campo do código");
+        setTimeout(focarCodigo, 80);
+        setTimeout(focarCodigo, 300);                // reforço caso o IDS mexa no foco depois
+      }
+    } catch (e) { console.error("[IDS-qtd] erro histórico:", e); }
+  }, 150);
 })();
