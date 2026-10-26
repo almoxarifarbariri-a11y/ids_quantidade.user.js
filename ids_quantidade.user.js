@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.21
+// @version      1.0.22
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -622,7 +622,7 @@ const TABELA = {
     }, INTERVALO_MS);
   }, true);
     // ===== Janela "Histórico de Saídas de Insumos" (bloqueio de retirada antecipada) =====
-  const AUTO_FECHAR_HISTORICO = true;   // true = clica em "Sair" sozinho | false = só devolve o foco quando VOCÊ fechar
+  const AUTO_FECHAR_HISTORICO = false;   // true = clica em "Sair" sozinho | false = só devolve o foco quando VOCÊ fechar
   const RE_JANELA_HIST = /Hist.rico de Sa.das de Insumos/i;
 
   function janelaHistorico() {
