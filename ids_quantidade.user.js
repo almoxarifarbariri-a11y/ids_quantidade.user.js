@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.22
+// @version      1.0.23
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -117,7 +117,7 @@ const TABELA = {
   "7896112132257": 500,    // CEFALEXINA 500 MG CPS - LABORATORIO
   "261000042": 10,    // CEFALEXINA 500 MG CPS - LABORATORIO
   "7896006212300": 1,    // CEFALEXINA SUSPENSAO 50MG/ML FCO - UNIÃO
-  "7898911244155": 1,    // CEFTRIAXONA SODICA 1000MG IM/EV AMP - ANTIBIOTICOS
+  "7898911244155": 50,    // CEFTRIAXONA SODICA 1000MG IM/EV AMP - ANTIBIOTICOS
   "260900179": 1,    // CEFTRIAXONA SODICA 1000MG IM/EV AMP - ANTIBIOTICOS
   "7891317007829": 1,    // CEFTRIAXONA SODICA 500MG IM/EV AMP - EUROFARMA
   "7899620911376": 10,    // CETOCONAZOL 200MG COM - GLOBO
@@ -465,6 +465,7 @@ const TABELA = {
     "7898040323127": 30,    // VARFARINA 5MG COM - FARMOQUÍMICA
     "7896112407102": 25,    // TIAMAZOL 10MG COM - BIOLAB
     "7898216364831": 5,    // AZITROMICINA 500MG COM - PHARLAB
+    "7898911244155": 1,    // CEFTRIAXONA SODICA 1000MG IM/EV AMP - ANTIBIOTICOS
     
   };
 
