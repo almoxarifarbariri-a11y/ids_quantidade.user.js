@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.27
+// @version      1.0.28
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -383,7 +383,7 @@ const TABELA = {
   "7896004713007": 60,    // TOPIRAMATO 100MG COM - EMS
   "7896004713021": 60,    // TOPIRAMATO 25MG COM - EMS
   "7896004713014": 60,    // TOPIRAMATO 50MG COM - EMS
-  "7896658038440": 60,    // TRIMETAZIDINA 35MG COM - ACHÉ
+  "7896658038440": 30,    // TRIMETAZIDINA 35MG COM - ACHÉ
   "7896676433098": 1,    // TROPICAMIDA SOL. OFT. 5ML FCO - CRISTÁLIA
   "7896004732916": 30,    // VALSARTANA 160MG COM - GERMED
   "7896004793801": 30,    // VALSARTANA 80 MG COM - EMS
