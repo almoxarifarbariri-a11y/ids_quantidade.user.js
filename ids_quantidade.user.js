@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.23
-// @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
+// @version      1.0.24
+// @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora de caixas na transferência
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
 // @updateURL    https://raw.githubusercontent.com/almoxarifarbariri-a11y/ids_quantidade.user.js/main/ids_quantidade.user.js
@@ -544,10 +544,79 @@ const TABELA = {
     return undefined;
   }
 
+  // ===== Calculadora de caixas (SÓ na transferência) =====
+  const CALC_ATIVA = true;    // false desliga a calculadora
+  const CALC_FOCAR = true;    // true = o cursor já cai no campo "Caixas"
+  let calcUnidade = 0;
+
+  const calc = document.createElement("div");
+  calc.style.cssText = "position:fixed;top:60px;left:60px;z-index:2147483000;padding:8px 10px;" +
+    "border-radius:8px;background:#1f2937;color:#fff;font:bold 14px Arial;" +
+    "box-shadow:0 2px 8px rgba(0,0,0,.5);display:none;align-items:center;gap:8px";
+  calc.innerHTML = '<span>Caixas:</span>' +
+    '<input type="text" inputmode="numeric" maxlength="4" style="width:55px;font:bold 14px Arial;text-align:center">' +
+    '<span class="calc-res"></span>';
+  document.body.appendChild(calc);
+  const calcInput = calc.querySelector("input");
+  const calcRes = calc.querySelector(".calc-res");
+
+  function fecharCalculadora() { calc.style.display = "none"; calcInput.value = ""; calcUnidade = 0; }
+
+  // posiciona logo abaixo da janela do item (ou perto do campo Quantidade, se não achar a janela)
+  function posicionarCalculadora() {
+    const q = campoPorRotulo(RE_QTD);
+    if (!q) return;
+    const janela = q.closest(".x-window");
+    const r = (janela || q).getBoundingClientRect();
+    calc.style.left = Math.max(8, r.left) + "px";
+    calc.style.top = (janela ? r.bottom + 8 : r.bottom + 6) + "px";
+  }
+
+  function mostrarCalculadora(unidade) {
+    if (!CALC_ATIVA || unidade <= 1) return;
+    if (!campoPorRotulo(RE_QTD_REQ)) return;       // só existe na transferência
+    calcUnidade = unidade;
+    calcInput.value = "";
+    calcRes.textContent = "× " + unidade;
+    posicionarCalculadora();
+    calc.style.display = "flex";
+    if (CALC_FOCAR) calcInput.focus();
+  }
+
+  calcInput.addEventListener("input", () => {
+    calcInput.value = calcInput.value.replace(/\D/g, "");
+    const n = parseInt(calcInput.value, 10);
+    calcRes.textContent = "× " + calcUnidade + (n ? " = " + (n * calcUnidade) : "");
+  });
+
+  calcInput.addEventListener("keydown", (e) => {
+    e.stopPropagation();                            // o Ext não deve reagir a Enter/Esc daqui
+    if (e.key === "Escape") { fecharCalculadora(); focarCodigo(); return; }
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const n = parseInt(calcInput.value, 10);
+    const qtdCampo = campoPorRotulo(RE_QTD);
+    if (n > 0 && qtdCampo) {
+      const total = n * calcUnidade;
+      preencher(qtdCampo, total);
+      mostrarAviso(n + " cx × " + calcUnidade + " = " + total, false);
+    }
+    fecharCalculadora();
+    focarCodigo();
+  });
+
+  // some sozinha se a janela do item for fechada; acompanha a janela se ela se mexer
+  setInterval(() => {
+    if (calc.style.display === "none") return;
+    if (!campoPorRotulo(RE_QTD)) fecharCalculadora(); else posicionarCalculadora();
+  }, 500);
+
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     const cod = campoPorRotulo(RE_COD);
     if (!cod || e.target !== cod || !cod.value) return;
+
+    fecharCalculadora();   // nova bipada: fecha a calculadora anterior
 
     const codigoLido = cod.value.trim();
     const avulso = ehEtiquetaAvulsa(codigoLido);   // começa com 0 = etiqueta de envelope avulso
@@ -611,6 +680,7 @@ const TABELA = {
         preencher(qtdCampo, alvo);
         console.log("[IDS-qtd] preenchido:", alvo);
         mostrarAviso((avulso ? "AVULSO" : "CAIXA") + ": +" + unidade, avulso);
+        if (!avulso) setTimeout(() => mostrarCalculadora(unidade), CONFERE_MS + 60);   // calculadora de caixas (só abre na transferência)
         setTimeout(() => voltarAoCodigo(qtdCampo), 60);
         setTimeout(() => {
           if (lerQtd() !== alvo) preencher(qtdCampo, alvo);        // reaplica se foi sobrescrito
