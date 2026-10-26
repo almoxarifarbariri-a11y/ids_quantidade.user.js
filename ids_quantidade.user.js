@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.26
+// @version      1.0.27
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora de caixas na transferência
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -544,21 +544,23 @@ const TABELA = {
     return undefined;
   }
 
-  // ===== Calculadora de caixas (SÓ na transferência) =====
-  const CALC_ATIVA = true;    // false desliga a calculadora
-  const CALC_FOCAR = true;    // true = o cursor já cai no campo "Caixas"
+    // ===== Calculadora (SÓ na transferência) =====
+  const CALC_ATIVA = true;                 // false desliga a calculadora
+  const CALC_FOCAR = true;                 // true = o cursor já cai no campo da calculadora
+  const CALC_PARA_DESCONHECIDOS = true;    // true = abre também quando o código não está na tabela (você digita a quantidade)
   let calcUnidade = 0;
 
   const calc = document.createElement("div");
   calc.style.cssText = "position:fixed;top:60px;left:60px;z-index:2147483000;padding:8px 10px;" +
     "border-radius:8px;background:#1f2937;color:#fff;font:bold 14px Arial;" +
     "box-shadow:0 2px 8px rgba(0,0,0,.5);display:none;align-items:center;gap:8px";
-  calc.innerHTML = '<span>Caixas:</span>' +
+  calc.innerHTML = '<span class="calc-rot">Caixas:</span>' +
     '<input type="text" inputmode="numeric" maxlength="4" style="width:55px;font:bold 14px Arial;text-align:center">' +
     '<span class="calc-res"></span>';
   document.body.appendChild(calc);
   const calcInput = calc.querySelector("input");
   const calcRes = calc.querySelector(".calc-res");
+  const calcRot = calc.querySelector(".calc-rot");
 
   function fecharCalculadora() { calc.style.display = "none"; calcInput.value = ""; calcUnidade = 0; }
 
@@ -572,11 +574,13 @@ const TABELA = {
     calc.style.top = (janela ? r.bottom + 8 : r.bottom + 6) + "px";
   }
 
-  function mostrarCalculadora(unidade) {
-    if (!CALC_ATIVA || unidade <= 1) return;
+  // unidade = quanto vale 1 (caixa, cartela, envelope ou unidade); avulso = true quando a etiqueta é avulsa
+  function mostrarCalculadora(unidade, avulso) {
+    if (!CALC_ATIVA) return;
     if (!campoPorRotulo(RE_QTD_REQ)) return;       // só existe na transferência
     calcUnidade = unidade;
     calcInput.value = "";
+    calcRot.textContent = avulso ? "Avulsos:" : (unidade === 1 ? "Qtd:" : "Caixas:");
     calcRes.textContent = "× " + unidade;
     posicionarCalculadora();
     calc.style.display = "flex";
@@ -599,7 +603,7 @@ const TABELA = {
     if (n > 0 && qtdCampo) {
       const total = n * calcUnidade;
       preencher(qtdCampo, total);
-      mostrarAviso(n + " cx × " + calcUnidade + " = " + total, false);
+      mostrarAviso(n + " × " + calcUnidade + " = " + total, false);
     }
     fecharCalculadora();
     focarCodigo();
