@@ -2,7 +2,7 @@
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
 // @version      1.0.27
-// @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora de caixas na transferência
+// @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
 // @updateURL    https://raw.githubusercontent.com/almoxarifarbariri-a11y/ids_quantidade.user.js/main/ids_quantidade.user.js
@@ -344,7 +344,6 @@ const TABELA = {
   "260900118": 1,    // PARACETAMOL 200MG/ML FCO - FUNDAÇÃO
   "7896004700038": 1,    // PARACETAMOL 200MG/ML FCO - EMS
   "261000056": 1,    // PARACETAMOL 200MG/ML FCO - FUNDAÇÃO
-  "7891317192822": 36,    // PARACETAMOL 500MG + FOSFATO DE CODEINA 30MG COM - EUROFARMA
   "7893454714868": 30,    // PARACETAMOL 500MG + FOSFATO DE CODEINA 30MG COM - CELLERA
   "7899547543780": 480,    // CONFERIR: estoque dos lotes nao e multiplo de 200 (cabe 10/20) | PARACETAMOL 750MG COM - PRATI
   "7896004727158": 15,    // PARACETAMOL+DICLOF. DE SODIO+CARISOPRODOL+CAFEINA COM - EMS
@@ -401,11 +400,7 @@ const TABELA = {
   "7897473206106": 1,    // DIPROPIONATO DE BECLAMETASONA 200MCG FCO - GLENMARK
   "9990000010417": 10,    // HALOPERIDOL 1MG COM 
   "7896676405170": 10,    // HALOPERIDOL 1MG COM 
-  "7891317192822": 12,    // PARACETAMOL 500MG + FOSFATO DE CODEINA 30MG COM - EUROFARMA
- 
-
-
-  
+  "7891317192822": 12,    // PARACETAMOL 500MG + FOSFATO DE CODEINA 30MG COM - EUROFARMA (a linha antiga com 36 foi removida; já valia este 12)
 };
 
   // Quantidade da etiqueta AVULSA (envelope/cartela) quando NÃO for 1.
@@ -466,19 +461,18 @@ const TABELA = {
     "7896112407102": 25,    // TIAMAZOL 10MG COM - BIOLAB
     "7898216364831": 5,    // AZITROMICINA 500MG COM - PHARLAB
     "7898911244155": 1,    // CEFTRIAXONA SODICA 1000MG IM/EV AMP - ANTIBIOTICOS
-    
   };
 
-    const INTERVALO_MS = 30;          // frequência de checagem
+  const INTERVALO_MS = 30;          // frequência de checagem
   const MIN_MESMO_ITEM_MS = 250;    // espera mínima ao bipar o mesmo item de novo
   const LIMITE_MS = 3000;           // desiste depois disso
   const CONFERE_MS = 400;           // reconfere se o IDS não sobrescreveu
   const VOLTAR_AO_CODIGO_NA_SAIDA = false;  // true = também volta ao código na saída
   const EXIGIR_CAMPO_LIMPO = true;  // ao bipar o MESMO item de novo, só soma depois que o IDS limpar o campo do código
 
-  // Etiqueta avulsa (gerada pelo IDS): mesmo C.B. da caixa, mas o código lido começa com 0
-  const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa
-      const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
+  // Etiqueta avulsa: começa com 0 (gerada pelo IDS, mesmo C.B. da caixa) ou 999 (sistema antigo)
+  const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
+  const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
   console.log("[IDS-qtd] script carregado | códigos na tabela:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
@@ -544,7 +538,7 @@ const TABELA = {
     return undefined;
   }
 
-    // ===== Calculadora (SÓ na transferência) =====
+  // ===== Calculadora (SÓ na transferência) =====
   const CALC_ATIVA = true;                 // false desliga a calculadora
   const CALC_FOCAR = true;                 // true = o cursor já cai no campo da calculadora
   const CALC_PARA_DESCONHECIDOS = true;    // true = abre também quando o código não está na tabela (você digita a quantidade)
@@ -623,7 +617,7 @@ const TABELA = {
     fecharCalculadora();   // nova bipada: fecha a calculadora anterior
 
     const codigoLido = cod.value.trim();
-    const avulso = ehEtiquetaAvulsa(codigoLido);   // começa com 0 = etiqueta de envelope avulso
+    const avulso = ehEtiquetaAvulsa(codigoLido);   // começa com 0 ou 999 = etiqueta avulsa
     console.log("[IDS-qtd] código bipado:", codigoLido, "|", avulso ? "AVULSO" : "CAIXA");
 
     const loteAntes = campoPorRotulo(RE_LOTE);
@@ -658,11 +652,11 @@ const TABELA = {
         const cbLote = m ? m[1] : null;                // C.B. do lote mostrado pelo IDS
         const semZeros = codigoLido.replace(/^0+/, "");
 
-        // quantidade: 1) código bipado (ex.: etiquetas antigas) 2) C.B. do lote; avulso usa AVULSO ou QTD_AVULSO
-                        const etiquetaAntiga = codigoLido.startsWith("999");   // etiqueta do sistema antigo
+        // quantidade: caixa = TABELA; avulso = AVULSO (ou QTD_AVULSO); etiqueta 999 só preenche se o código estiver listado
+        const etiquetaAntiga = codigoLido.startsWith("999");   // etiqueta do sistema antigo
         const unidade = avulso
           ? (etiquetaAntiga
-              ? (buscar(AVULSO, [codigoLido, cbLote]) ?? buscar(TABELA, [codigoLido]))   // só preenche se o código estiver listado
+              ? (buscar(AVULSO, [codigoLido, cbLote]) ?? buscar(TABELA, [codigoLido]))
               : (buscar(AVULSO, [cbLote, semZeros]) || QTD_AVULSO))
           : buscar(TABELA, [codigoLido, cbLote]);
         console.log("[IDS-qtd] item pronto em", decorrido, "ms | bipado:", codigoLido, "| C.B. do lote:", cbLote,
@@ -670,6 +664,7 @@ const TABELA = {
 
         if (unidade === undefined) {
           console.log("[IDS-qtd] nem o código bipado nem o C.B. do lote estão na tabela: não preenche");
+          if (CALC_PARA_DESCONHECIDOS) setTimeout(() => mostrarCalculadora(1, false), CONFERE_MS + 60);
           return;
         }
 
@@ -684,7 +679,7 @@ const TABELA = {
         preencher(qtdCampo, alvo);
         console.log("[IDS-qtd] preenchido:", alvo);
         mostrarAviso((avulso ? "AVULSO" : "CAIXA") + ": +" + unidade, avulso);
-        if (!avulso) setTimeout(() => mostrarCalculadora(unidade), CONFERE_MS + 60);   // calculadora de caixas (só abre na transferência)
+        setTimeout(() => mostrarCalculadora(unidade, avulso), CONFERE_MS + 60);   // calculadora (só abre na transferência)
         setTimeout(() => voltarAoCodigo(qtdCampo), 60);
         setTimeout(() => {
           if (lerQtd() !== alvo) preencher(qtdCampo, alvo);        // reaplica se foi sobrescrito
@@ -696,7 +691,8 @@ const TABELA = {
       }
     }, INTERVALO_MS);
   }, true);
-    // ===== Janela "Histórico de Saídas de Insumos" (bloqueio de retirada antecipada) =====
+
+  // ===== Janela "Histórico de Saídas de Insumos" (bloqueio de retirada antecipada) =====
   const AUTO_FECHAR_HISTORICO = false;   // true = clica em "Sair" sozinho | false = só devolve o foco quando VOCÊ fechar
   const RE_JANELA_HIST = /Hist.rico de Sa.das de Insumos/i;
 
