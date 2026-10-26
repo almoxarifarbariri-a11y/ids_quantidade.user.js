@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.19
+// @version      1.0.20
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso)
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -464,6 +464,7 @@ const TABELA = {
     "7898920500679": 1,    // SACARATO DE HIDROXIDO FERRICO 100MG/5ML AMP - CASULA
     "7898040323127": 30,    // VARFARINA 5MG COM - FARMOQUÍMICA
     "7896112407102": 25,    // TIAMAZOL 10MG COM - BIOLAB
+    "7898216364831": 5,    // AZITROMICINA 500MG COM - PHARLAB
     
   };
 
