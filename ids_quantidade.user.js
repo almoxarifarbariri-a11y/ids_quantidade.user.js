@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.28
+// @version      1.0.29
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -34,7 +34,7 @@ const TABELA = {
   "260900070": 1,    // [NOVO] ACIDO FOLICO 0,2MG/ML FCO - MAYBEN
   "7898133136580": 500,    // ACIDO FOLICO 5MG COM - NATULAB
   "7896255765633": 50,    // CONFERIR: estoque dos lotes nao e multiplo de 30 | ACIDO VALPROICO 250MG (DEPAKENE) CPS - ABBOTT
-  "7891158000317": 50,    // CONFERIR: estoque dos lotes nao e multiplo de 30 | ACIDO VALPROICO 300MG (DEPAKENE) CPS - ABBOTT
+  "7891158000317": 25,    // CONFERIR: estoque dos lotes nao e multiplo de 30 | ACIDO VALPROICO 300MG (DEPAKENE) CPS - ABBOTT
   "7891158000898": 50,    // CONFERIR: estoque dos lotes nao e multiplo de 30 (cabe 10/25/50) | ACIDO VALPROICO 500MG (DEPAKENE) CPS - ABBOTT
   "260900131": 1,    // ACIDO VALPROICO 50MG/ML (DEPAKENE) FCO - HIPOLABOR
   "260900185": 1,    // ACIDO VALPROICO 50MG/ML (DEPAKENE) FCO - HIPOLABOR
@@ -543,6 +543,20 @@ const TABELA = {
   const CALC_FOCAR = true;                 // true = o cursor já cai no campo da calculadora
   const CALC_PARA_DESCONHECIDOS = true;    // true = abre também quando o código não está na tabela (você digita a quantidade)
   let calcUnidade = 0;
+    const GRAVAR_AUTOMATICO = true;   // true = clica em "Gravar e Incluir" ao dar Enter na calculadora
+  const GRAVAR_ESPERA_MS = 150;     // espera o IDS registrar a quantidade antes de clicar
+  const RE_BTN_GRAVAR = /^\s*Gravar e Incluir\s*$/i;
+
+  function clicarGravarEIncluir(janela) {
+    const acha = (raiz) => [...raiz.querySelectorAll(".x-btn")]
+      .find(b => b.offsetParent !== null && RE_BTN_GRAVAR.test(b.textContent));
+    const btn = (janela && acha(janela)) || acha(document);
+    if (!btn) { console.warn("[IDS-qtd] botão Gravar e Incluir não encontrado"); return false; }
+    console.log("[IDS-qtd] clicando em Gravar e Incluir");
+    const cmp = window.Ext && Ext.getCmp(btn.id);
+    if (cmp && cmp.fireHandler) cmp.fireHandler(); else btn.click();
+    return true;
+  }
 
   const calc = document.createElement("div");
   calc.style.cssText = "position:fixed;top:60px;left:60px;z-index:2147483000;padding:8px 10px;" +
@@ -587,20 +601,31 @@ const TABELA = {
     calcRes.textContent = "× " + calcUnidade + (n ? " = " + (n * calcUnidade) : "");
   });
 
-  calcInput.addEventListener("keydown", (e) => {
+    calcInput.addEventListener("keydown", (e) => {
     e.stopPropagation();                            // o Ext não deve reagir a Enter/Esc daqui
     if (e.key === "Escape") { fecharCalculadora(); focarCodigo(); return; }
     if (e.key !== "Enter") return;
     e.preventDefault();
     const n = parseInt(calcInput.value, 10);
     const qtdCampo = campoPorRotulo(RE_QTD);
+    const janela = qtdCampo ? qtdCampo.closest(".x-window") : null;
+    let gravar = false;
     if (n > 0 && qtdCampo) {
       const total = n * calcUnidade;
       preencher(qtdCampo, total);
       mostrarAviso(n + " × " + calcUnidade + " = " + total, false);
+      gravar = GRAVAR_AUTOMATICO;
     }
     fecharCalculadora();
-    focarCodigo();
+    if (gravar) {
+      setTimeout(() => {
+        clicarGravarEIncluir(janela);
+        setTimeout(focarCodigo, 200);               // devolve o foco ao código para a próxima bipada
+      }, GRAVAR_ESPERA_MS);
+    } else {
+      focarCodigo();
+    }
+  });
   });
 
   // some sozinha se a janela do item for fechada; acompanha a janela se ela se mexer
