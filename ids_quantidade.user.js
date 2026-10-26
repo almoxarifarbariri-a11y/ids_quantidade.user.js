@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.0.24
+// @version      1.0.25
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora de caixas na transferência
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -547,7 +547,7 @@ const TABELA = {
   // ===== Calculadora de caixas (SÓ na transferência) =====
   const CALC_ATIVA = true;    // false desliga a calculadora
   const CALC_FOCAR = true;    // true = o cursor já cai no campo "Caixas"
-  let calcUnidade = 0;
+  let calcUnidade = 1;
 
   const calc = document.createElement("div");
   calc.style.cssText = "position:fixed;top:60px;left:60px;z-index:2147483000;padding:8px 10px;" +
