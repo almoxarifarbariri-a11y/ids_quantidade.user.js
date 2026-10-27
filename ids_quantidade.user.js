@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.3.0
+// @version      1.4.0
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -260,6 +260,72 @@
     if (!campoPorRotulo(RE_QTD)) fecharCalculadora(); else posicionarCalculadora();
   }, 500);
 
+  // ===== Confirmação do IDS: "medicamento controlado ... prazo mínimo recomendado de N dias" =====
+  // Aparece ao bipar de novo o MESMO item (soma): o IDS calcula a suficiência com a quantidade já somada
+  // (Dose Diária vazia = 1 por dia) e acha que "ainda há quantidade suficiente". Responder "Sim" abre a
+  // janela "Justificativa", e ela pode repetir várias vezes; "Não" apaga o item da linha.
+  //
+  // SOMAR_REBIPADA_SEM_IDS = true  -> na SAÍDA, quando você bipa de novo o MESMO código do item que já está
+  //                                   na tela (quantidade já preenchida), o script soma a quantidade sozinho e
+  //                                   NÃO deixa o Enter chegar ao IDS. Assim a pergunta nem aparece.
+  //                                   A primeira bipada de cada item continua passando normalmente pelo IDS.
+  //                                   Não vale na transferência. false = volta ao comportamento anterior.
+  const SOMAR_REBIPADA_SEM_IDS = true;
+  // AUTO_CONFIRMAR_SOMA = true -> clica em "Sim" sozinho (NÃO recomendado: abre a Justificativa).
+  const AUTO_CONFIRMAR_SOMA = false;
+  const RE_JANELA_CONFIRM = /Confirma..o/i;
+  const RE_TEXTO_PRAZO = /medicamento controlado[\s\S]*prazo m.nimo/i;
+  let ultimaBipada = { codigo: "", t: 0, soma: false };
+
+  function janelaConfirmacaoPrazo() {
+    return [...document.querySelectorAll(".x-window")].find(w =>
+      w.offsetParent !== null &&
+      RE_JANELA_CONFIRM.test((w.querySelector(".x-window-header, .x-header, .x-title")?.textContent || "")) &&
+      RE_TEXTO_PRAZO.test(w.textContent || ""));
+  }
+
+  let confirmTratada = false;
+  setInterval(() => {
+    try {
+      const w = janelaConfirmacaoPrazo();
+      if (!w) { confirmTratada = false; return; }
+      if (confirmTratada) return;
+      confirmTratada = true;                          // trata cada janela uma única vez
+      const ehSoma = ultimaBipada.soma && (Date.now() - ultimaBipada.t) < 4000;
+      if (!AUTO_CONFIRMAR_SOMA || !ehSoma) {
+        console.log("[IDS-qtd] confirmação de prazo mínimo: aguardando você responder (soma:", ehSoma, ")");
+        return;
+      }
+      const btn = [...w.querySelectorAll(".x-btn")].find(b => /^\s*Sim\s*$/i.test(b.textContent));
+      if (!btn) { confirmTratada = false; return; }   // botão ainda não apareceu: tenta de novo
+      console.log("[IDS-qtd] confirmação de prazo mínimo na soma do mesmo item: clicando em Sim");
+      const cmp = window.Ext && Ext.getCmp(btn.id);
+      if (cmp && cmp.fireHandler) cmp.fireHandler(); else btn.click();
+      mostrarAviso("Confirmação: Sim (soma)", false);
+    } catch (e) { console.error("[IDS-qtd] erro confirmação:", e); }
+  }, 100);
+
+  // quantidade de uma bipada: caixa = TABELA; avulso = AVULSO (ou QTD_AVULSO); etiqueta 999 só preenche se o código estiver listado
+  function unidadeDoCodigo(codigoLido, cbLote) {
+    const avulso = ehEtiquetaAvulsa(codigoLido);
+    const semZeros = codigoLido.replace(/^0+/, "");
+    const etiquetaAntiga = codigoLido.startsWith("999");   // etiqueta do sistema antigo
+    return avulso
+      ? (etiquetaAntiga
+          ? (buscar(AVULSO, [codigoLido, cbLote]) ?? buscar(TABELA, [codigoLido]))
+          : (buscar(AVULSO, [cbLote, semZeros]) || QTD_AVULSO))
+      : buscar(TABELA, [codigoLido, cbLote]);
+  }
+
+  // depois de uma soma direta, o Enter (keypress/keyup) também não deve chegar ao IDS
+  let engolirEnter = false;
+  ["keypress", "keyup"].forEach((tipo) => document.addEventListener(tipo, (e) => {
+    if (e.key !== "Enter" || !engolirEnter) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (tipo === "keyup") engolirEnter = false;
+  }, true));
+
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     const cod = campoPorRotulo(RE_COD);
@@ -273,10 +339,46 @@
 
     const loteAntes = campoPorRotulo(RE_LOTE);
     const antes = { lote: loteAntes ? loteAntes.value : "", qtd: lerQtd() };
-    const inicio = Date.now();
+    ultimaBipada = { codigo: codigoLido, t: Date.now(),
+                     soma: antes.qtd > 0 && antes.lote !== "" && codigoLido === ultimaBipada.codigo };
+
+    // Soma direta (só na SAÍDA): mesmo código do item que já está na tela e com quantidade preenchida.
+    // O IDS não recebe esse Enter, então não recalcula a suficiência nem pergunta nada.
+    if (SOMAR_REBIPADA_SEM_IDS && ultimaBipada.soma && !campoPorRotulo(RE_QTD_REQ)) {
+      const mCb = antes.lote.match(/C\.B\.:\s*(\S+)/);
+      const cbTela = mCb ? mCb[1] : null;
+      const confere = cbTela && (cbTela === codigoLido || cbTela === codigoLido.replace(/^0+/, ""));
+      const unid = confere ? unidadeDoCodigo(codigoLido, cbTela) : undefined;
+      const qtdCampoDireto = campoPorRotulo(RE_QTD);
+      if (unid !== undefined && qtdCampoDireto) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        engolirEnter = true;
+        setTimeout(() => { engolirEnter = false; }, 500);   // garantia: nunca fica preso
+        preencher(cod, "");                                 // limpa o código, como o IDS faria
+        const alvoDireto = antes.qtd + unid;
+        preencher(qtdCampoDireto, alvoDireto);
+        console.log("[IDS-qtd] soma direta (sem passar pelo IDS):", antes.qtd, "+", unid, "=", alvoDireto);
+        mostrarAviso((avulso ? "AVULSO" : "CAIXA") + ": +" + unid, avulso);
+        setTimeout(() => {
+          const q2 = campoPorRotulo(RE_QTD);
+          if (q2 && lerQtd() !== alvoDireto) preencher(q2, alvoDireto);   // reaplica se foi sobrescrito
+          focarCodigo();
+        }, CONFERE_MS);
+        return;
+      }
+    }
+    let inicio = Date.now();
+    let esperaDesde = 0;
 
     const t = setInterval(() => {
       try {
+        // IDS perguntando (confirmação de prazo mínimo): não conta o tempo enquanto a janela estiver aberta,
+        // para a soma acontecer depois da resposta (no máx. 60 s de espera)
+        if (janelaConfirmacaoPrazo()) {
+          if (!esperaDesde) esperaDesde = Date.now();
+          if (Date.now() - esperaDesde < 60000) { inicio = Date.now(); return; }
+        }
         const decorrido = Date.now() - inicio;
         const lote = campoPorRotulo(RE_LOTE);
         if (decorrido > LIMITE_MS) {
@@ -301,15 +403,7 @@
 
         const m = textoLote.match(/C\.B\.:\s*(\S+)/);
         const cbLote = m ? m[1] : null;                // C.B. do lote mostrado pelo IDS
-        const semZeros = codigoLido.replace(/^0+/, "");
-
-        // quantidade: caixa = TABELA; avulso = AVULSO (ou QTD_AVULSO); etiqueta 999 só preenche se o código estiver listado
-        const etiquetaAntiga = codigoLido.startsWith("999");   // etiqueta do sistema antigo
-        const unidade = avulso
-          ? (etiquetaAntiga
-              ? (buscar(AVULSO, [codigoLido, cbLote]) ?? buscar(TABELA, [codigoLido]))
-              : (buscar(AVULSO, [cbLote, semZeros]) || QTD_AVULSO))
-          : buscar(TABELA, [codigoLido, cbLote]);
+        const unidade = unidadeDoCodigo(codigoLido, cbLote);   // regra de caixa/avulso na função acima
         console.log("[IDS-qtd] item pronto em", decorrido, "ms | bipado:", codigoLido, "| C.B. do lote:", cbLote,
                     "| quantidade da tabela:", unidade, "| antes:", antes);
 
