@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.4.0
+// @version      1.5.0
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -317,6 +317,30 @@
       : buscar(TABELA, [codigoLido, cbLote]);
   }
 
+  // ===== Data da Receita (só existe na saída): preenche com a data de HOJE se estiver vazia =====
+  // Nunca sobrescreve uma data já preenchida. Se a receita for de outro dia, é só trocar a data na tela.
+  const PREENCHER_DATA_RECEITA = true;   // false desliga
+  const RE_DATA_RECEITA = /^Data da Receita:$/;
+
+  function dataHojeBR() {
+    const d = new Date();
+    return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
+  }
+
+  function preencherDataReceita() {
+    if (!PREENCHER_DATA_RECEITA) return;
+    const campo = campoPorRotulo(RE_DATA_RECEITA);
+    if (!campo || campo.value) return;              // não existe (transferência) ou já tem data: não mexe
+    const cmp = window.Ext && Ext.getCmp(campo.dataset.componentid);
+    if (cmp && cmp.setValue) {
+      cmp.setValue(cmp.format ? new Date() : dataHojeBR());   // datefield do Ext aceita Date; senão texto dd/mm/aaaa
+      if (cmp.checkChange) cmp.checkChange();
+    } else {
+      preencher(campo, dataHojeBR());
+    }
+    console.log("[IDS-qtd] Data da Receita preenchida:", campo.value || dataHojeBR());
+  }
+
   // depois de uma soma direta, o Enter (keypress/keyup) também não deve chegar ao IDS
   let engolirEnter = false;
   ["keypress", "keyup"].forEach((tipo) => document.addEventListener(tipo, (e) => {
@@ -400,6 +424,8 @@
           if (EXIGIR_CAMPO_LIMPO && codAtual && codAtual.value) return;  // IDS ainda não processou o código
         }
         clearInterval(t);
+        preencherDataReceita();                              // saída: data de hoje se estiver vazia
+        setTimeout(preencherDataReceita, CONFERE_MS);        // reaplica se o IDS limpou o campo
 
         const m = textoLote.match(/C\.B\.:\s*(\S+)/);
         const cbLote = m ? m[1] : null;                // C.B. do lote mostrado pelo IDS
