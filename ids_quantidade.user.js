@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.2.0
+// @version      1.1.0
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -96,17 +96,12 @@
   const VOLTAR_AO_CODIGO_NA_SAIDA = false;  // true = também volta ao código na saída
   const EXIGIR_CAMPO_LIMPO = true;  // ao bipar o MESMO item de novo, só soma depois que o IDS limpar o campo do código
 
-  // Soma sem disparar a validação do IDS (evita a janela "Confirmação" de controlado a cada bipada).
-  // true  = nas bipadas de soma, o número é escrito no campo sem avisar o IDS (a validação roda ao sair do campo/gravar)
-  // false = comportamento antigo (cada bipada avisa o IDS)
-  const SOMAR_SEM_VALIDAR = true;
-
   // Etiqueta avulsa: começa com 0 (gerada pelo IDS, mesmo C.B. da caixa) ou 999 (sistema antigo)
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.2.0 | tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
-              "| avulsos especiais:", Object.keys(AVULSO).length, "| soma silenciosa:", SOMAR_SEM_VALIDAR);
+  console.log("[IDS-qtd] script carregado v1.1.0 | tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
+              "| avulsos especiais:", Object.keys(AVULSO).length);
 
   // aviso rápido no canto da tela com o que o script entendeu da última bipada
   const aviso = document.createElement("div");
@@ -151,13 +146,6 @@
       campo.dispatchEvent(new Event("input", { bubbles: true }));
       campo.dispatchEvent(new Event("change", { bubbles: true }));
     }
-  }
-
-  // escreve o valor no campo SEM disparar o evento de mudança do Ext (não aciona a validação do IDS)
-  function preencherSilencioso(campo, valor) {
-    const cmp = window.Ext && Ext.getCmp(campo.dataset.componentid);
-    if (cmp && cmp.setRawValue) cmp.setRawValue(valor);
-    else campo.value = valor;
   }
 
   function voltarAoCodigo(qtdCampo) {
@@ -339,18 +327,13 @@
           return;
         }
 
-        // soma = mesmo item bipado de novo; nela (se ligado) não avisamos o IDS, para não reabrir a Confirmação
-        const somando = !mudou && antes.qtd > 0;
-        const silencioso = somando && SOMAR_SEM_VALIDAR;
-        const escrever = silencioso ? preencherSilencioso : preencher;
-
-        escrever(qtdCampo, alvo);
-        console.log("[IDS-qtd] preenchido:", alvo, silencioso ? "(silencioso)" : "");
+        preencher(qtdCampo, alvo);
+        console.log("[IDS-qtd] preenchido:", alvo);
         mostrarAviso((avulso ? "AVULSO" : "CAIXA") + ": +" + unidade, avulso);
         setTimeout(() => mostrarCalculadora(unidade, avulso), CONFERE_MS + 60);   // calculadora (só abre na transferência)
         setTimeout(() => voltarAoCodigo(qtdCampo), 60);
         setTimeout(() => {
-          if (lerQtd() !== alvo) escrever(qtdCampo, alvo);         // reaplica se foi sobrescrito
+          if (lerQtd() !== alvo) preencher(qtdCampo, alvo);        // reaplica se foi sobrescrito
           voltarAoCodigo(qtdCampo);
         }, CONFERE_MS);
       } catch (erro) {
