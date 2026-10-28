@@ -58,7 +58,9 @@
     "2560": 1,    // RISPERIDONA 3MG COM
     "2967": 1,    // TOPIRAMATO 100MG COM
     "2968": 1,    // TOPIRAMATO 25MG COM
-    "2969": 1    // TOPIRAMATO 50MG COM
+    "2969": 1     // TOPIRAMATO 50MG COM
+    "906":  1     //TRAMADOL 50MG COM
+    "905":  1     //TRAMADOL 100MG COM
   },
   "caixa": {
     "260900215": 1,    // [NOVO] ACEBROFILINA 10 MG/ML FCO - CIMED
