@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.5.0
+// @version      1.5.1
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -18,13 +18,18 @@
 
   const TABELA = {};   // etiqueta de caixa: C.B. -> quantidade por embalagem  (chave "caixa" do JSON)
   const AVULSO = {};   // etiqueta avulsa (envelope/cartela) quando NÃO for 1  (chave "avulso" do JSON)
+  const CONTROLADOS = {};   // CÓDIGOS DE INSUMO controlados (o número antes do "-" no campo Insumo)  chave "controlados" do JSON
+  let listaControladosDefinida = false;   // false = o JSON ainda não tem a chave "controlados"
   let tabelasOrigem = "nenhuma";
 
   function aplicarTabelas(d) {
     for (const k of Object.keys(TABELA)) delete TABELA[k];
     for (const k of Object.keys(AVULSO)) delete AVULSO[k];
+    for (const k of Object.keys(CONTROLADOS)) delete CONTROLADOS[k];
     Object.assign(TABELA, d.caixa);
     Object.assign(AVULSO, d.avulso);
+    Object.assign(CONTROLADOS, d.controlados || {});
+    listaControladosDefinida = !!d.temLista;
   }
 
   // confere o formato; devolve {caixa, avulso} limpo ou null se o conteúdo não servir
@@ -42,7 +47,12 @@
     const caixa = limpar(obj.caixa, "caixa");
     const avulso = limpar(obj.avulso, "avulso");
     if (Object.keys(caixa).length < 10) return null;   // arquivo vazio/quebrado: não troca a tabela atual
-    return { caixa, avulso };
+    let ctrl = obj.controlados;                         // aceita {"861": 1} ou [861]
+    if (Array.isArray(ctrl)) ctrl = Object.fromEntries(ctrl.map(c => [String(c).trim(), 1]));
+    const temLista = typeof obj.temLista === "boolean" ? obj.temLista     // cópia local já traz a resposta
+                                                       : (!!ctrl && typeof ctrl === "object");
+    const controlados = limpar(ctrl, "controlados");
+    return { caixa, avulso, controlados, temLista };
   }
 
   // aceita comentários (// ...) e vírgula sobrando antes de } ou ]
@@ -76,7 +86,8 @@
       gravarCache(d);
       tabelasOrigem = "GitHub";
       console.log("[IDS-qtd] tabelas atualizadas do GitHub | caixa:", Object.keys(TABELA).length,
-                  "| avulsos especiais:", Object.keys(AVULSO).length);
+                  "| avulsos especiais:", Object.keys(AVULSO).length,
+                  "| controlados:", listaControladosDefinida ? Object.keys(CONTROLADOS).length : "sem lista (data para todos)");
     } catch (e) {
       console.warn("[IDS-qtd] não consegui ler o tabelas.json (" + (e && e.message ? e.message : e) +
                    "). Mantendo as tabelas de:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length);
@@ -100,7 +111,7 @@
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.1.0 | tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
+  console.log("[IDS-qtd] script carregado v1.5.1 | tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
 
   // aviso rápido no canto da tela com o que o script entendeu da última bipada
@@ -320,7 +331,18 @@
   // ===== Data da Receita (só existe na saída): preenche com a data de HOJE se estiver vazia =====
   // Nunca sobrescreve uma data já preenchida. Se a receita for de outro dia, é só trocar a data na tela.
   const PREENCHER_DATA_RECEITA = true;   // false desliga
+  // true = só preenche para insumos listados em "controlados" no tabelas.json (pelo código do insumo).
+  // Enquanto o JSON não tiver a chave "controlados", continua preenchendo para todos.
+  const SOMENTE_CONTROLADOS = true;
   const RE_DATA_RECEITA = /^Data da Receita:$/;
+  const RE_INSUMO = /^Insumo:$/;
+
+  // código do insumo na tela: "861 - CLORIDRATO DE FLUOXETINA 20MG" -> "861"
+  function codigoInsumoDaTela() {
+    const campo = campoPorRotulo(RE_INSUMO);
+    const m = campo && (campo.value || "").match(/^\s*(\d+)\s*-/);
+    return m ? m[1] : null;
+  }
 
   function dataHojeBR() {
     const d = new Date();
@@ -331,6 +353,13 @@
     if (!PREENCHER_DATA_RECEITA) return;
     const campo = campoPorRotulo(RE_DATA_RECEITA);
     if (!campo || campo.value) return;              // não existe (transferência) ou já tem data: não mexe
+    if (SOMENTE_CONTROLADOS && listaControladosDefinida) {
+      const ins = codigoInsumoDaTela();
+      if (!ins || !CONTROLADOS[ins]) {
+        console.log("[IDS-qtd] Data da Receita: insumo", ins, "não está em controlados: não preenche");
+        return;
+      }
+    }
     const cmp = window.Ext && Ext.getCmp(campo.dataset.componentid);
     if (cmp && cmp.setValue) {
       cmp.setValue(cmp.format ? new Date() : dataHojeBR());   // datefield do Ext aceita Date; senão texto dd/mm/aaaa
