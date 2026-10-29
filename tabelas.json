@@ -459,6 +459,10 @@
     "9990000010417": 10,    // HALOPERIDOL 1MG COM
     "7896676405170": 10,    // HALOPERIDOL 1MG COM
     "7891317192822": 36,    // PARACETAMOL 500MG + FOSFATO DE CODEINA 30MG COM - EUROFARMA (a linha antiga com 36 foi removida; já valia este 12)
+    "7896676403350": 10,    // CLORIDRATO DE IMIPRAMINA 25MG COM - CRISTÁLIA
+    "7894916503051": 20,    // CLOMIPRAMINA 75MG COM - BRACE
+    "7894916510158": 20,    // CLOMIPRAMINA 25MG COM - EMS
+
   },
 
   // "avulso": quantidade da etiqueta AVULSA (envelope/cartela) quando NAO for 1.
