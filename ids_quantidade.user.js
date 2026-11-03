@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.6.6
+// @version      1.6.7
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -124,7 +124,7 @@
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.6.4 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
+  console.log("[IDS-qtd] script carregado v1.6.7 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
               "| tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
 
@@ -375,7 +375,9 @@
   //  true  = preenche a DOSE DIÁRIA com (Quantidade / dias). O IDS então calcula sozinho a Suficiência (=dias)
   //          e a Previsão. Mostra a Suficiência, sem piscar. (depende do campo aceitar casas decimais)
   //  false = escreve a data direto na PREVISÃO (Suficiência fica vazia/0).
-  const USAR_DOSE_DIARIA = true;
+  // DESLIGADO: o modo Dose Diária (foca/desfoca o campo) estava TRAVANDO a janela do item
+  // (botão Fechar parava de responder). Modo Previsão direta é estável.
+  const USAR_DOSE_DIARIA = false;
   const RE_DOSE_DIARIA = /^Dose Di.ria:?$/i;
   let ultimaDose = { ins: null, qtd: null };   // controla pra não reaplicar a dose em loop
   // OBS: o IDS calcula a Suficiência sozinho pela Dose Diária e força 0 quando ela está vazia.
