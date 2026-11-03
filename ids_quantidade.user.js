@@ -12,7 +12,7 @@
 (function () {
   // ===== Tabelas (C.B. -> quantidade) vêm do tabelas.json no GitHub =====
   // Para adicionar/alterar um C.B., edite só o tabelas.json: não precisa mexer neste script nem na versão.
-  const TABELAS_URL = "https://raw.githubusercontent.com/glaucobetim1-png/ids_quant/refs/heads/main/tabelas.json";
+  const TABELAS_URL = "https://raw.githubusercontent.com/almoxarifarbariri-a11y/ids_quantidade.user.js/main/tabelas.json";
   const TABELAS_RECARREGAR_MIN = 30;                 // releitura periódica com a página aberta (0 = só ao carregar)
   const TABELAS_CACHE_KEY = "ids-qtd-tabelas-v1";    // cópia local, usada se o GitHub estiver fora do ar
 
