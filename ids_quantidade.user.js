@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.6.5
+// @version      1.6.6
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -13,7 +13,7 @@
   // ===== Tabelas (C.B. -> quantidade) vêm do tabelas.json no GitHub =====
   // Para adicionar/alterar um C.B., edite só o tabelas.json: não precisa mexer neste script nem na versão.
   const TABELAS_URL = "https://raw.githubusercontent.com/almoxarifarbariri-a11y/ids_quantidade.user.js/main/tabelas.json";
-  const TABELAS_RECARREGAR_MIN = 30;                 // releitura periódica com a página aberta (0 = só ao carregar)
+  const TABELAS_RECARREGAR_MIN = 5;                 // releitura periódica com a página aberta (0 = só ao carregar)
   const TABELAS_CACHE_KEY = "ids-qtd-tabelas-v1";    // cópia local, usada se o GitHub estiver fora do ar
 
   const TABELA = {};   // etiqueta de caixa: C.B. -> quantidade por embalagem  (chave "caixa" do JSON)
