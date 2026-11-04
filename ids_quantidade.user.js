@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.6.8
+// @version      1.6.9
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -132,7 +132,7 @@
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.6.8 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
+  console.log("[IDS-qtd] script carregado v1.6.9 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
               "| tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
 
@@ -689,8 +689,9 @@
 
   function janelaHistorico() {
     // acha a janela mesmo que esteja escondida com visibility:hidden (offsetParent continua != null)
+    // IGNORA a janela aberta pelo botão (idsManual): essa é intocável, o IDS cuida dela.
     return [...document.querySelectorAll(".x-window")].find(w =>
-      w.offsetParent !== null && ehJanelaHist(w));
+      w.offsetParent !== null && ehJanelaHist(w) && w.dataset.idsManual !== "1");
   }
 
   // lê o valor do campo "Insumo:" DENTRO da janela de histórico (string vazia = janela geral / ainda carregando)
@@ -771,7 +772,17 @@
       const btn = e.target.closest && e.target.closest(".x-btn, button, a");
       if (btn && RE_BTN_HIST.test((btn.textContent || "").trim().replace(/\s+/g, " "))) {
         histPedidaManual = Date.now();
-        console.log("[IDS-qtd] botão Histórico clicado: a próxima janela será mantida aberta");
+        // LIMPEZA: fecha qualquer histórico automático que esteja escondido/pendente e restaura máscaras.
+        // É isso que evita a máscara presa (= sistema travado) quando o automático e o manual se cruzam.
+        [...document.querySelectorAll(".x-window")].forEach((w) => {
+          if (ehJanelaHist(w) && w.dataset.idsManual !== "1") {
+            w.style.removeProperty("visibility");
+            fecharHistorico(w);
+          }
+        });
+        restaurarMascaras();
+        histClicada = false; histVazioDesde = 0; histAberta = false;
+        console.log("[IDS-qtd] botão Histórico clicado: limpei o automático e vou manter a janela manual aberta");
       }
     } catch (e2) { /* ignora */ }
   }, true);
@@ -779,16 +790,20 @@
   // decide o destino da janela de histórico: geral -> fecha (escondida); item -> mostra e deixa aberta
   function tratarJanelaHist(w) {
     if (!w || histClicada) return;
+    if (w.dataset.idsManual === "1") return;   // janela de consulta manual: intocável (o IDS cuida dela)
     histAberta = true;
     const insumo = insumoDoHistorico(w);
     const vazio = insumo === "";
 
-    // Você abriu pelo botão "Histórico": mantém aberta, mesmo sendo a geral (Insumo vazio).
+    // Você abriu pelo botão "Histórico": marca como MANUAL e nunca mais mexe (o IDS cuida da máscara/Sair).
     if ((Date.now() - histPedidaManual) < JANELA_MANUAL_MS) {
+      w.dataset.idsManual = "1";
       revelarHistEmascara(w);
-      histClicada = true;
+      histClicada = false;    // não prende o estado global na janela manual (ela é independente)
+      histVazioDesde = 0;
+      histAberta = false;
       histPedidaManual = 0;   // consome: não vale para uma próxima janela
-      console.log("[IDS-qtd] histórico aberto pelo botão: mantendo aberto");
+      console.log("[IDS-qtd] histórico aberto pelo botão: marcado como manual (intocável)");
       return;
     }
 
@@ -826,6 +841,7 @@
           if (n.nodeType !== 1) continue;
           let w = ehJanelaHist(n) ? n : (n.querySelector ? [...n.querySelectorAll(".x-window")].find(ehJanelaHist) : null);
           if (!w) continue;
+          if (w.dataset.idsManual === "1") continue;   // janela manual: não encosta
           // esconde JÁ (janela + máscara escura) se o Insumo ainda estiver vazio, pra geral não chegar a aparecer
           // (mas NÃO esconde se você acabou de clicar no botão Histórico: aí é consulta proposital)
           const pedidaManual = (Date.now() - histPedidaManual) < JANELA_MANUAL_MS;
