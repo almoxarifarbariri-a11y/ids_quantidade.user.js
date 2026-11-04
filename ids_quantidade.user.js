@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.7.0
+// @version      1.6.9
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -132,7 +132,7 @@
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.7.0 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
+  console.log("[IDS-qtd] script carregado v1.6.9 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
               "| tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
 
@@ -917,26 +917,4 @@
       setTimeout(() => { if (lerQtd() !== unidade) preencher(qtdCampo, unidade); }, CONFERE_MS);
     } catch (e) { /* ignora */ }
   }, 500);
-
-  // ===== Avisos "igrowl" (notificações verdes de sucesso) que empilham no canto e cobrem os ícones =====
-  // Só mexe nos elementos .igrowl (as notificaçõezinhas). NÃO toca em janelas .x-window de verdade.
-  const SUPRIMIR_AVISOS = true;
-  const AVISO_VIDA_MS = 1200;      // tempo na tela antes do script tirar (piscadinha p/ você ver o "sucesso")
-  setInterval(() => {
-    if (!SUPRIMIR_AVISOS) return;
-    try {
-      const caixas = [...document.querySelectorAll(".igrowl")].filter(a => a.offsetParent !== null);
-      if (!caixas.length) return;
-      const agora = Date.now();
-      caixas.forEach(a => { if (!a.dataset.idsVisto) a.dataset.idsVisto = String(agora); });
-      const maisNovo = caixas[caixas.length - 1];
-      caixas.forEach(a => {
-        const idade = agora - Number(a.dataset.idsVisto);
-        // tira os antigos quando empilham (mantém só o mais novo) e qualquer um após a vida curta
-        if ((caixas.length > 1 && a !== maisNovo) || idade >= AVISO_VIDA_MS) {
-          try { a.remove(); } catch (e) { /* ignora */ }
-        }
-      });
-    } catch (e) { /* ignora */ }
-  }, 250);
 })();
