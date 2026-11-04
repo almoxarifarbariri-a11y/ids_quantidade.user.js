@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.6.7
+// @version      1.6.8
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -115,8 +115,16 @@
 
   const INTERVALO_MS = 30;          // frequência de checagem
   const MIN_MESMO_ITEM_MS = 250;    // espera mínima ao bipar o mesmo item de novo
-  const LIMITE_MS = 3000;           // desiste depois disso
+  const LIMITE_MS = 8000;           // desiste depois disso (aumentado: PCs lentos demoravam mais que 3s p/ carregar o item)
   const CONFERE_MS = 400;           // reconfere se o IDS não sobrescreveu
+
+  // ===== Rede de segurança: recupera sozinho quando o item carrega mas a quantidade não entra =====
+  // (resolve o "bipa, puxa a info, mas não preenche; só F5 resolve" sem precisar de F5 nem F12)
+  const AUTO_RECUPERAR = true;
+  const RECUPERAR_APOS_MS = 2500;   // tempo com item carregado + quantidade vazia antes de preencher sozinho
+  let ultimoCodigoBipado = { codigo: "", t: 0 };   // último código visto no campo ao dar Enter (p/ acertar caixa/avulso)
+  let travadoDesde = 0;             // desde quando está "item carregado + quantidade vazia"
+  let loteRecuperado = "";          // último lote já recuperado (não repete no mesmo item)
   const VOLTAR_AO_CODIGO_NA_SAIDA = false;  // true = também volta ao código na saída
   const EXIGIR_CAMPO_LIMPO = true;  // ao bipar o MESMO item de novo, só soma depois que o IDS limpar o campo do código
 
@@ -124,7 +132,7 @@
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.6.7 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
+  console.log("[IDS-qtd] script carregado v1.6.8 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
               "| tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
 
@@ -533,6 +541,9 @@
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     const cod = campoPorRotulo(RE_COD);
+    // registra o código SEMPRE que houver Enter com o campo do código preenchido,
+    // mesmo que o resto do handler não rode: a rede de segurança usa isso p/ acertar caixa/avulso
+    if (cod && (cod.value || "").trim()) ultimoCodigoBipado = { codigo: cod.value.trim(), t: Date.now() };
     if (!cod || e.target !== cod || !cod.value) {
       // diagnóstico: Enter num campo com cara de código de barras, mas o script não achou o campo do código
       const alvo = e.target;
@@ -846,4 +857,48 @@
       }
     } catch (e) { console.error("[IDS-qtd] erro histórico:", e); }
   }, 120);
+
+  // ===== Rede de segurança: item carregado + quantidade vazia por um tempo -> preenche sozinho =====
+  // Só age quando o fluxo normal NÃO preencheu (evita o F5). Usa o código realmente bipado,
+  // então acerta caixa/avulso igual ao normal. Nunca mexe em item já com quantidade (não atrapalha a soma).
+  setInterval(() => {
+    if (!AUTO_RECUPERAR) return;
+    try {
+      if (campoPorRotulo(RE_QTD_REQ)) { travadoDesde = 0; return; }   // transferência: tem a calculadora, não mexe
+      const qtdCampo = campoPorRotulo(RE_QTD);
+      const lote = campoPorRotulo(RE_LOTE);
+      const cod = campoPorRotulo(RE_COD);
+      if (!qtdCampo || !lote) { travadoDesde = 0; return; }
+      const textoLote = lote.value || "";
+      const codVal = cod ? (cod.value || "").trim() : "";
+      const qtd = lerQtd();
+
+      if (!textoLote) loteRecuperado = "";   // formulário sem item: libera recuperar o próximo
+
+      // "travado" = item carregado (Lote preenchido), quantidade vazia, campo do código já limpo,
+      // e ainda não recuperamos esse mesmo lote
+      const travado = textoLote && !qtd && !codVal && textoLote !== loteRecuperado;
+      if (!travado) { travadoDesde = 0; return; }
+
+      if (!travadoDesde) { travadoDesde = Date.now(); return; }
+      if (Date.now() - travadoDesde < RECUPERAR_APOS_MS) return;
+
+      // só recupera com o código realmente bipado há pouco (acerta caixa/avulso; sem isso, não arrisca)
+      const recente = ultimoCodigoBipado.codigo && (Date.now() - ultimoCodigoBipado.t) < 20000;
+      if (!recente) { travadoDesde = 0; return; }
+
+      const m = textoLote.match(/C\.B\.:\s*(\S+)/);
+      const cbLote = m ? m[1] : null;
+      const unidade = unidadeDoCodigo(ultimoCodigoBipado.codigo, cbLote);
+      if (unidade === undefined) { travadoDesde = 0; return; }   // não está na tabela: não preenche
+
+      preencher(qtdCampo, unidade);
+      loteRecuperado = textoLote;
+      travadoDesde = 0;
+      preencherPrevisao();   // xaropes/gotas: mantém a previsão também na recuperação
+      console.log("[IDS-qtd] RECUPERAÇÃO automática: quantidade preenchida sem F5 | código:", ultimoCodigoBipado.codigo,
+                  "| C.B. do lote:", cbLote, "| quantidade:", unidade);
+      setTimeout(() => { if (lerQtd() !== unidade) preencher(qtdCampo, unidade); }, CONFERE_MS);
+    } catch (e) { /* ignora */ }
+  }, 500);
 })();
