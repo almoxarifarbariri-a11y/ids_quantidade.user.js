@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.7.1
+// @version      1.7.2
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -22,6 +22,8 @@
   let listaControladosDefinida = false;   // false = o JSON ainda não tem a chave "controlados"
   const PREVISAO_DIAS = {}; // CÓDIGOS DE INSUMO -> dias p/ próxima retirada (xaropes/gotas etc.)  chave "previsao_dias" do JSON
   let listaPrevisaoDefinida = false;      // false = o JSON ainda não tem a chave "previsao_dias"
+  const NUMERO_RECEITA = {};// CÓDIGOS DE INSUMO -> número da receita padrão (ex.: "1")  chave "numero_receita" do JSON
+  let listaNumeroReceitaDefinida = false; // false = o JSON ainda não tem a chave "numero_receita"
   let tabelasOrigem = "nenhuma";
 
   function aplicarTabelas(d) {
@@ -29,12 +31,15 @@
     for (const k of Object.keys(AVULSO)) delete AVULSO[k];
     for (const k of Object.keys(CONTROLADOS)) delete CONTROLADOS[k];
     for (const k of Object.keys(PREVISAO_DIAS)) delete PREVISAO_DIAS[k];
+    for (const k of Object.keys(NUMERO_RECEITA)) delete NUMERO_RECEITA[k];
     Object.assign(TABELA, d.caixa);
     Object.assign(AVULSO, d.avulso);
     Object.assign(CONTROLADOS, d.controlados || {});
     Object.assign(PREVISAO_DIAS, d.previsao || {});
+    Object.assign(NUMERO_RECEITA, d.numeroReceita || {});
     listaControladosDefinida = !!d.temLista;
     listaPrevisaoDefinida = !!d.temPrevisao;
+    listaNumeroReceitaDefinida = !!d.temNumeroReceita;
   }
 
   // confere o formato; devolve {caixa, avulso} limpo ou null se o conteúdo não servir
@@ -64,7 +69,20 @@
     const temPrevisao = typeof obj.temPrevisao === "boolean" ? obj.temPrevisao
                                                              : (!!pv && typeof pv === "object");
     const previsao = limpar(pv, "previsao_dias");       // dias positivos (ex.: 15)
-    return { caixa, avulso, controlados, temLista, previsao, temPrevisao };
+    // numero_receita: aceita [1234, 5678] (todos "1") ou {"1234": "1", "5678": "2"}
+    // (do JSON vem como "numero_receita"; da cópia local/cache vem já validado como "numeroReceita")
+    let nr = obj.numero_receita !== undefined ? obj.numero_receita : obj.numeroReceita;
+    if (Array.isArray(nr)) nr = Object.fromEntries(nr.map(c => [String(c).trim(), "1"]));
+    const temNumeroReceita = typeof obj.temNumeroReceita === "boolean" ? obj.temNumeroReceita
+                                                                       : (!!nr && typeof nr === "object");
+    const numeroReceita = {};
+    if (nr && typeof nr === "object") {
+      for (const [k, v] of Object.entries(nr)) {
+        const val = String(v).trim();
+        if (val) numeroReceita[String(k).trim()] = val;   // texto (o campo aceita qualquer coisa; padrão "1")
+      }
+    }
+    return { caixa, avulso, controlados, temLista, previsao, temPrevisao, numeroReceita, temNumeroReceita };
   }
 
   // aceita comentários (// ...) e vírgula sobrando antes de } ou ]
@@ -100,7 +118,8 @@
       console.log("[IDS-qtd] tabelas atualizadas do GitHub | caixa:", Object.keys(TABELA).length,
                   "| avulsos especiais:", Object.keys(AVULSO).length,
                   "| controlados:", listaControladosDefinida ? Object.keys(CONTROLADOS).length : "sem lista (data para todos)",
-                  "| previsão (xaropes/gotas):", listaPrevisaoDefinida ? Object.keys(PREVISAO_DIAS).length : "sem lista");
+                  "| previsão (xaropes/gotas):", listaPrevisaoDefinida ? Object.keys(PREVISAO_DIAS).length : "sem lista",
+                  "| nº receita:", listaNumeroReceitaDefinida ? Object.keys(NUMERO_RECEITA).length : "sem lista");
     } catch (e) {
       console.warn("[IDS-qtd] não consegui ler o tabelas.json (" + (e && e.message ? e.message : e) +
                    "). Mantendo as tabelas de:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length);
@@ -132,7 +151,7 @@
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.7.1 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
+  console.log("[IDS-qtd] script carregado v1.7.2 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
               "| tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
 
@@ -373,6 +392,13 @@
   const RE_DATA_RECEITA = /^Data da Receita:$/;
   const RE_INSUMO = /^Insumo:$/;
 
+  // ===== Número da Receita: preenche com "1" (padrão) só para os insumos listados em "numero_receita" =====
+  // Para medicamentos cuja receita não traz número (ex.: TRAMADOL, PARACETAMOL+CODEÍNA) e o IDS exige o campo.
+  // Nunca sobrescreve um número já digitado.
+  const PREENCHER_NUMERO_RECEITA = true;      // false desliga
+  const NUMERO_RECEITA_PADRAO = "1";          // valor quando a lista vem como [codigos]
+  const RE_NUM_RECEITA = /^N.mero da Receita:$/i;
+
   // ===== Previsão de próxima retirada (xaropes, gotas etc.): preenche com HOJE + N dias =====
   // Só para os insumos listados em "previsao_dias" no tabelas.json (padrão 15 dias).
   const PREENCHER_PREVISAO = true;       // false desliga
@@ -500,6 +526,20 @@
     console.log("[IDS-qtd] Data da Receita preenchida:", campo.value || dataHojeBR());
   }
 
+  // Preenche o Número da Receita com "1" (padrão), só para os insumos listados em "numero_receita".
+  function preencherNumeroReceita() {
+    if (!PREENCHER_NUMERO_RECEITA || !listaNumeroReceitaDefinida) return;
+    const ins = codigoInsumoDaTela();
+    if (!ins || NUMERO_RECEITA[ins] === undefined) return;      // item não está na lista
+    const campo = campoPorRotulo(RE_NUM_RECEITA);
+    if (!campo || (campo.value || "").trim()) return;           // não existe ou já tem número: não mexe
+    const valor = NUMERO_RECEITA[ins] || NUMERO_RECEITA_PADRAO;
+    const cmp = window.Ext && Ext.getCmp(campo.dataset.componentid);
+    if (cmp && cmp.setValue) { cmp.setValue(valor); if (cmp.checkChange) cmp.checkChange(); }
+    else preencher(campo, valor);
+    console.log("[IDS-qtd] Número da Receita preenchido:", valor, "| insumo", ins);
+  }
+
   // pinta o campo de amarelo para lembrar que a data foi posta pelo script (confira se a receita é de hoje)
   function destacarDataReceita(campo) {
     if (!DESTACAR_DATA_RECEITA || !campo) return;
@@ -583,6 +623,7 @@
         preencher(qtdCampoDireto, alvoDireto);
         console.log("[IDS-qtd] soma direta (sem passar pelo IDS):", antes.qtd, "+", unid, "=", alvoDireto);
         preencherPrevisao();                                   // xaropes/gotas: Previsão = hoje + N dias
+        preencherNumeroReceita();                              // nº da receita "1" p/ os listados
         mostrarAviso((avulso ? "AVULSO" : "CAIXA") + ": +" + unid, avulso);
         setTimeout(() => {
           const q2 = campoPorRotulo(RE_QTD);
@@ -627,6 +668,8 @@
         clearInterval(t);
         preencherDataReceita();                              // saída: data de hoje se estiver vazia
         setTimeout(preencherDataReceita, CONFERE_MS);        // reaplica se o IDS limpou o campo
+        preencherNumeroReceita();                            // nº da receita "1" p/ os listados (TRAMADOL etc.)
+        setTimeout(preencherNumeroReceita, CONFERE_MS);
 
         const m = textoLote.match(/C\.B\.:\s*(\S+)/);
         const cbLote = m ? m[1] : null;                // C.B. do lote mostrado pelo IDS
@@ -915,6 +958,7 @@
       loteRecuperado = textoLote;
       travadoDesde = 0;
       preencherPrevisao();   // xaropes/gotas: mantém a previsão também na recuperação
+      preencherNumeroReceita();   // nº da receita "1" p/ os listados, também na recuperação
       console.log("[IDS-qtd] RECUPERAÇÃO automática: quantidade preenchida sem F5 | código:", ultimoCodigoBipado.codigo,
                   "| C.B. do lote:", cbLote, "| quantidade:", unidade);
       setTimeout(() => { if (lerQtd() !== unidade) preencher(qtdCampo, unidade); }, CONFERE_MS);
