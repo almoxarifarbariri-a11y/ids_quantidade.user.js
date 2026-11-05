@@ -739,7 +739,10 @@
   // Com EVITAR_ABRIR ligado a janela já está escondida nesse meio-tempo, então isso é invisível.
   // Serve de margem pra NUNCA fechar a do item (que preenche o Insumo em ~150ms).
   const HIST_ESPERA_MS = 600;
-  const RE_JANELA_HIST = /Hist.rico de Sa.das de Insumos/i;
+  // Ancorado no início: casa SÓ a janela de histórico de verdade ("Histórico de Saídas de Insumos"),
+  // e NÃO a de impressão ("Imprimir Pesquisa - Histórico...") nem "Detalhe - Histórico...", que o script
+  // fechava por engano ao clicar em Imprimir dentro do histórico.
+  const RE_JANELA_HIST = /^\s*Hist.rico de Sa.das de Insumos/i;
 
   function ehJanelaHist(w) {
     return !!w && w.nodeType === 1 && w.matches && w.matches(".x-window") &&
