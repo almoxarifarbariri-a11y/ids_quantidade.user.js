@@ -985,7 +985,7 @@
   // Pega QUALQUER elemento com "igrowl" na classe e remove a caixa inteira (o invólucro mais externo).
   // NÃO toca em janelas .x-window de verdade.
   const SUPRIMIR_AVISOS = true;
-  const AVISO_VIDA_MS = 700;      // tempo na tela antes do script tirar (piscadinha p/ você ver o "sucesso")
+  const AVISO_VIDA_MS = 1000;      // tempo na tela antes do script tirar (piscadinha p/ você ver o "sucesso")
 
   // dado um elemento com "igrowl" na classe, sobe até o invólucro mais externo que ainda tem "igrowl"
   function caixaIgrowl(el) {
