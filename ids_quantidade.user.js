@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.7.2
+// @version      1.7.3
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -151,7 +151,7 @@
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.7.2 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
+  console.log("[IDS-qtd] script carregado v1.7.3 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
               "| tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
 
@@ -174,6 +174,18 @@
 
   function campoPorRotulo(regex) {
     const rotulo = [...document.querySelectorAll("label")]
+      .filter(l => l.offsetParent !== null)
+      .find(l => regex.test(l.textContent.trim().replace(/\s+/g, " ")));
+    return rotulo ? document.getElementById(rotulo.getAttribute("for")) : null;
+  }
+
+  // igual ao campoPorRotulo, mas procura SÓ dentro da janela do item (onde está a Quantidade).
+  // Necessário quando o mesmo rótulo existe no formulário de fora e no do item (ex.: "Número da Receita:").
+  function campoPorRotuloNoItem(regex) {
+    const q = campoPorRotulo(RE_QTD);
+    const janela = q ? q.closest(".x-window") : null;
+    const raiz = janela || document;
+    const rotulo = [...raiz.querySelectorAll("label")]
       .filter(l => l.offsetParent !== null)
       .find(l => regex.test(l.textContent.trim().replace(/\s+/g, " ")));
     return rotulo ? document.getElementById(rotulo.getAttribute("for")) : null;
@@ -531,7 +543,8 @@
     if (!PREENCHER_NUMERO_RECEITA || !listaNumeroReceitaDefinida) return;
     const ins = codigoInsumoDaTela();
     if (!ins || NUMERO_RECEITA[ins] === undefined) return;      // item não está na lista
-    const campo = campoPorRotulo(RE_NUM_RECEITA);
+    // procura DENTRO da janela do item: existe outro "Número da Receita" no formulário de fora
+    const campo = campoPorRotuloNoItem(RE_NUM_RECEITA);
     if (!campo || (campo.value || "").trim()) return;           // não existe ou já tem número: não mexe
     const valor = NUMERO_RECEITA[ins] || NUMERO_RECEITA_PADRAO;
     const cmp = window.Ext && Ext.getCmp(campo.dataset.componentid);
