@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.7.4
+// @version      1.7.5
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -151,7 +151,7 @@
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.7.3 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
+  console.log("[IDS-qtd] script carregado v1.7.5 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
               "| tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
 
@@ -982,14 +982,24 @@
   }, 500);
 
   // ===== Avisos "igrowl" (notificações verdes de sucesso) que empilham no canto e cobrem os ícones =====
-  // Só mexe nos elementos .igrowl (as notificaçõezinhas). NÃO toca em janelas .x-window de verdade.
+  // Pega QUALQUER elemento com "igrowl" na classe e remove a caixa inteira (o invólucro mais externo).
+  // NÃO toca em janelas .x-window de verdade.
   const SUPRIMIR_AVISOS = true;
   const AVISO_VIDA_MS = 1200;      // tempo na tela antes do script tirar (piscadinha p/ você ver o "sucesso")
+
+  // dado um elemento com "igrowl" na classe, sobe até o invólucro mais externo que ainda tem "igrowl"
+  function caixaIgrowl(el) {
+    let top = el, p = el.parentElement;
+    while (p && typeof p.className === "string" && /igrowl/i.test(p.className)) { top = p; p = p.parentElement; }
+    return top;
+  }
+
   setInterval(() => {
     if (!SUPRIMIR_AVISOS) return;
     try {
-      const caixas = [...document.querySelectorAll(".igrowl")].filter(a => a.offsetParent !== null);
-      if (!caixas.length) return;
+      const encontrados = [...document.querySelectorAll('[class*="igrowl"]')].filter(a => a.offsetParent !== null);
+      if (!encontrados.length) return;
+      const caixas = [...new Set(encontrados.map(caixaIgrowl))];   // dedup: uma entrada por notificação
       const agora = Date.now();
       caixas.forEach(a => { if (!a.dataset.idsVisto) a.dataset.idsVisto = String(agora); });
       const maisNovo = caixas[caixas.length - 1];
