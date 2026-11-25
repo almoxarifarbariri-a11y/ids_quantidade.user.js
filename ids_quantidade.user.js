@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.7.6
+// @version      1.8.0
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
 // @updateURL    https://raw.githubusercontent.com/almoxarifarbariri-a11y/ids_quantidade.user.js/main/ids_quantidade.user.js
 // @downloadURL  https://raw.githubusercontent.com/almoxarifarbariri-a11y/ids_quantidade.user.js/main/ids_quantidade.user.js
+// @require      https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js
 // ==/UserScript==
 
 (function () {
@@ -151,7 +152,7 @@
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.7.5 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
+  console.log("[IDS-qtd] script carregado v1.8.0 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
               "| tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
 
@@ -1012,4 +1013,71 @@
       });
     } catch (e) { /* ignora */ }
   }, 250);
+
+  // ===================================================================================
+  // ===== TELEFONE NO COMPROVANTE (bloco ISOLADO — não toca em bip/soma/calc/histórico) =====
+  // Carimba um telefone no topo do comprovante (PDF) antes de imprimir.
+  // TUDO protegido: se a biblioteca (pdf-lib do @require) não carregar, este bloco é
+  // simplesmente PULADO e todo o resto do script continua 100%.
+  try {
+    // --------- AJUSTE AQUI ---------
+    const TEL_TEXTO = "Farmácia: (14) 3662-8442";   // <-- troque pelo número real
+    const TEL_TOPO  = 18;   // distância do topo (pts); se a térmica cortar, aumente (24, 30...)
+    const TEL_FONTE = 8;
+    // -------------------------------
+    const TEL_RE_PDF = /\/Relatorios\/[^"']*\.pdf/i;
+    const telEmAndamento = new Set();
+    const telBlobs = [];
+
+    async function telCarimbar(bytes) {
+      const { PDFDocument, StandardFonts, rgb } = PDFLib;
+      const doc = await PDFDocument.load(bytes);
+      const font = await doc.embedFont(StandardFonts.HelveticaBold);
+      const page = doc.getPages()[0];
+      const { width, height } = page.getSize();
+      const larg = font.widthOfTextAtSize(TEL_TEXTO, TEL_FONTE);
+      page.drawText(TEL_TEXTO, { x: (width - larg) / 2, y: height - TEL_TOPO, size: TEL_FONTE, font: font, color: rgb(0, 0, 0) });
+      return await doc.save();
+    }
+    async function telTratar(f, src) {
+      try {
+        const resp = await fetch(src, { credentials: "include", cache: "no-store" });
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const novo = await telCarimbar(await resp.arrayBuffer());
+        const url = URL.createObjectURL(new Blob([novo], { type: "application/pdf" }));
+        f.src = url; telBlobs.push({ url: url, f: f });
+        console.log("[IDS-tel] telefone carimbado no comprovante");
+      } catch (e) {
+        console.warn("[IDS-tel] não carimbou (comprovante segue normal):", e && e.message ? e.message : e);
+      } finally {
+        setTimeout(function () { telEmAndamento.delete(src); }, 3000);
+      }
+    }
+
+    if (typeof PDFLib !== "undefined") {
+      console.log("[IDS-tel] ativo (pdf-lib carregado)");
+      setInterval(function () {
+        try {
+          const frames = document.querySelectorAll("iframe");
+          for (let k = 0; k < frames.length; k++) {
+            const f = frames[k], src = f.src || "";
+            if (!TEL_RE_PDF.test(src) || telEmAndamento.has(src)) continue;
+            telEmAndamento.add(src);
+            telTratar(f, src);
+          }
+          // libera da memória os PDFs que já saíram da tela
+          for (let i = telBlobs.length - 1; i >= 0; i--) {
+            const b = telBlobs[i];
+            if (!b.f.isConnected || b.f.src !== b.url) {
+              try { URL.revokeObjectURL(b.url); } catch (e) { /* ignora */ }
+              telBlobs.splice(i, 1);
+            }
+          }
+        } catch (e) { /* ignora */ }
+      }, 400);
+    } else {
+      console.warn("[IDS-tel] pdf-lib não carregou — telefone desativado (o resto do script segue normal)");
+    }
+  } catch (e) { console.warn("[IDS-tel] bloco do telefone falhou (o resto segue normal):", e); }
+
 })();
