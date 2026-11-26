@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IDS - Quantidade automática ao bipar
 // @namespace    ids-bariri-quantidade
-// @version      1.8.2
+// @version      1.8.3
 // @description  Preenche a quantidade ao bipar o código de barras no IDS Saúde (caixa e avulso) + calculadora na transferência. Tabelas lidas do tabelas.json no GitHub.
 // @match        https://bariri-saude.ids.inf.br/*
 // @grant        none
@@ -152,7 +152,7 @@
   const QTD_AVULSO = 1;             // quantidade por bipada de etiqueta avulsa que não esteja na AVULSO
   const ehEtiquetaAvulsa = (codigo) => /^(0|999)\d+$/.test(codigo);
 
-  console.log("[IDS-qtd] script carregado v1.8.0 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
+  console.log("[IDS-qtd] script carregado v1.8.1 |", (window === window.top ? "JANELA PRINCIPAL" : "IFRAME"), location.pathname,
               "| tabelas:", tabelasOrigem, "| caixa:", Object.keys(TABELA).length,
               "| avulsos especiais:", Object.keys(AVULSO).length);
 
@@ -1024,17 +1024,22 @@
     const TEL_TEXTO = "Farmácia: (14) 3662-8442";   // <-- troque pelo número real
     const TEL_TOPO  = 18;   // distância do topo (pts); se a térmica cortar, aumente (24, 30...)
     const TEL_FONTE = 10;
+    const TEL_LARG_MAX = 300;  // só carimba páginas MAIS ESTREITAS que isso (o comprovante tem ~224).
+                               // As ETIQUETAS são bem mais largas -> não recebem o telefone.
     // -------------------------------
     const TEL_RE_PDF = /\/Relatorios\/[^"']*\.pdf/i;
-    const telEmAndamento = new Set();
     const telBlobs = [];
 
-    async function telCarimbar(bytes) {
+    // Carimba SÓ se o PDF for o comprovante (recibo estreito e em pé). Senão devolve null (não mexe).
+    async function telCarimbarSeComprovante(bytes) {
       const { PDFDocument, StandardFonts, rgb } = PDFLib;
       const doc = await PDFDocument.load(bytes);
-      const font = await doc.embedFont(StandardFonts.HelveticaBold);
       const page = doc.getPages()[0];
       const { width, height } = page.getSize();
+      // comprovante = estreito (largura < TEL_LARG_MAX) e em pé (altura > largura).
+      // etiquetas e outros relatórios são largos -> não carimba.
+      if (!(width < TEL_LARG_MAX && height > width)) return null;
+      const font = await doc.embedFont(StandardFonts.HelveticaBold);
       const larg = font.widthOfTextAtSize(TEL_TEXTO, TEL_FONTE);
       page.drawText(TEL_TEXTO, { x: (width - larg) / 2, y: height - TEL_TOPO, size: TEL_FONTE, font: font, color: rgb(0, 0, 0) });
       return await doc.save();
@@ -1043,14 +1048,13 @@
       try {
         const resp = await fetch(src, { credentials: "include", cache: "no-store" });
         if (!resp.ok) throw new Error("HTTP " + resp.status);
-        const novo = await telCarimbar(await resp.arrayBuffer());
+        const novo = await telCarimbarSeComprovante(await resp.arrayBuffer());
+        if (!novo) { console.log("[IDS-tel] não é comprovante (ex.: etiquetas) — não carimba"); return; }
         const url = URL.createObjectURL(new Blob([novo], { type: "application/pdf" }));
         f.src = url; telBlobs.push({ url: url, f: f });
         console.log("[IDS-tel] telefone carimbado no comprovante");
       } catch (e) {
         console.warn("[IDS-tel] não carimbou (comprovante segue normal):", e && e.message ? e.message : e);
-      } finally {
-        setTimeout(function () { telEmAndamento.delete(src); }, 3000);
       }
     }
 
@@ -1061,8 +1065,9 @@
           const frames = document.querySelectorAll("iframe");
           for (let k = 0; k < frames.length; k++) {
             const f = frames[k], src = f.src || "";
-            if (!TEL_RE_PDF.test(src) || telEmAndamento.has(src)) continue;
-            telEmAndamento.add(src);
+            if (!TEL_RE_PDF.test(src)) continue;      // só PDF de relatório (blob já carimbado não casa)
+            if (f.dataset.telSrc === src) continue;   // esse PDF já foi decidido nesse iframe (carimbado OU pulado)
+            f.dataset.telSrc = src;
             telTratar(f, src);
           }
           // libera da memória os PDFs que já saíram da tela
